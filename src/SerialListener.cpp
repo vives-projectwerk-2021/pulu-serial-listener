@@ -2,39 +2,50 @@
 
 #include "identifier.h"
 #include "mbed.h"
-#include <array>
+#include "mbedtls/base64.h"
 
 namespace Pulu {
     bool SerialListener::cmd_IS_request_id() {
         char cmd[4];
         scanf("%4s", (char*)&cmd);
-        size_t decodedCmdLength;
-        char* decodedCmd = base64.Decode(cmd, 4, &decodedCmdLength);
-        return strcmp(decodedCmd,"id") == 0;
+        char decodedCmd[2];
+        size_t olen;
+        mbedtls_base64_decode((unsigned char*)decodedCmd, sizeof(decodedCmd), &olen, (unsigned char*)cmd, sizeof(cmd));
+        char search[2] = {'i','d'};
+        return memcmp(decodedCmd, search, sizeof(search)) == 0;
     }
 
     void SerialListener::print_id() {
         auto uid = get_uid_bytes();
-        size_t encodedUidLength;
-        char* encodedUid = base64.Encode((char*)uid.data(), uid.size(), &encodedUidLength);
+        size_t encoded_size;
+        mbedtls_base64_encode(nullptr, 0, &encoded_size, uid.data(), uid.size());
+        char* encodedUid = (char*) malloc(encoded_size);
+        mbedtls_base64_encode((unsigned char*)encodedUid, encoded_size, &encoded_size, uid.data(), uid.size());
         printf("%s\n", encodedUid);
+        free(encodedUid);
     }
 
     EEPROM_Config SerialListener::read_conf(bool &error) {
+        const uint8_t BASE64_CONF_LENGTH = 48;
+        const uint8_t CONF_LENGTH = 34;
+
         EEPROM_Config config;
         char conf[BASE64_CONF_LENGTH];
         char pattern[8];
-        sprintf(pattern, "%%%ds", BASE64_CONF_LENGTH);
+        sprintf(pattern, "%%%ds", sizeof(conf));
         scanf(pattern, &conf);
 
-        size_t decodedLength;
-        char* decoded = base64.Decode(conf, BASE64_CONF_LENGTH, &decodedLength);
+        size_t decoded_size;
+        mbedtls_base64_decode(nullptr, 0, &decoded_size, (unsigned char*)conf, sizeof(conf));
 
-        if(decodedLength!=34) {
+        if(decoded_size!=CONF_LENGTH) {
             printf("1\n");
             error = true;
             return config;
         }
+
+        char decoded[CONF_LENGTH];
+        mbedtls_base64_decode((unsigned char*)decoded, sizeof(decoded), &decoded_size, (unsigned char*)conf, sizeof(conf));
 
         config.version = 0x03;
         memcpy(&config.keys.devEui, decoded, 8);
