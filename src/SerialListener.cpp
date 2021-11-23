@@ -7,7 +7,9 @@
 namespace Pulu {
     bool SerialListener::cmd_IS_request_id() {
         char cmd[4];
-        scanf("%4s", (char*)&cmd);
+        for(auto&& c : cmd) {
+            mbed_file_handle(STDOUT_FILENO)->read(&c, 1);
+        }
         char decodedCmd[2];
         size_t olen;
         mbedtls_base64_decode((unsigned char*)decodedCmd, sizeof(decodedCmd), &olen, (unsigned char*)cmd, sizeof(cmd));
@@ -31,9 +33,9 @@ namespace Pulu {
 
         EEPROM_Config config;
         char conf[BASE64_CONF_LENGTH];
-        char pattern[8];
-        sprintf(pattern, "%%%ds", sizeof(conf));
-        scanf(pattern, &conf);
+        for(auto&& c : conf) {
+            mbed_file_handle(STDOUT_FILENO)->read(&c, 1);
+        }
 
         size_t decoded_size;
         mbedtls_base64_decode(nullptr, 0, &decoded_size, (unsigned char*)conf, sizeof(conf));
